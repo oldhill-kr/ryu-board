@@ -1,0 +1,13 @@
+
+# claude-sync safety
+.env
+.env.*
+!.env.example
+*.env
+*.pem
+*.key
+node_modules/
+__pycache__/
+.claude/settings.local.json
+.claude/*.log
+Thumbs.db
