@@ -1,0 +1,44 @@
+name: market-live
+
+# 시장 상태 실시간 갱신. 공개 시세(Yahoo Finance, 네이버 증권)만 받아 market-data 브랜치의 market.json 한 파일로 올린다.
+# 비밀키·계좌 정보는 쓰지 않는다. 대시보드(암호화된 페이지)가 열릴 때 이 파일을 읽어 시장 상태 숫자만 덮는다.
+on:
+  schedule:
+    # 한국 장중 09:00~16:00 KST (= 00:00~07:00 UTC), 평일
+    - cron: '5,35 0-7 * * 1-5'
+    # 미국 장중 22:30~다음날 05:00 KST (= 13:30~20:00 UTC) + 마감 뒤 한 번, 평일
+    - cron: '5,35 13-21 * * 1-5'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: market-live
+  cancel-in-progress: true
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install
+        run: pip install yfinance requests
+      - name: Fetch market data
+        run: python market_live.py --out market.json --prev-url "https://raw.githubusercontent.com/${{ github.repository }}/market-data/market.json"
+      - name: Publish to market-data branch
+        run: |
+          set -e
+          mkdir out
+          cp market.json out/
+          cd out
+          git init -q -b market-data
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add market.json
+          git commit -q -m "market $(date -u +%Y-%m-%dT%H:%MZ)"
+          git push -q -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" market-data
