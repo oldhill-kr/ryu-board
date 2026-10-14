@@ -30,9 +30,10 @@ jobs:
         run: pip install yfinance requests
       - name: Fetch market data
         run: python market_live.py --out market.json --prev-url "https://raw.githubusercontent.com/${{ github.repository }}/market-data/market.json"
-      - name: Publish to market-data branch
+      - name: Publish to market-data branch (실제 시세가 바뀐 때만)
         run: |
           set -e
+          if [ ! -f market.json ]; then echo '변동 없음: 게시하지 않는다'; exit 0; fi
           mkdir out
           cp market.json out/
           cd out

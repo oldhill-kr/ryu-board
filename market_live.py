@@ -154,6 +154,18 @@ def build(prev: dict | None, download, session, now: datetime | None = None) -> 
             "indicators": indicators, "market_flows": flows, "foreign_hist": hist}
 
 
+def _core(doc: dict | None) -> dict | None:
+    """갱신 시각·소스 상태를 뺀 실제 데이터."""
+    if not isinstance(doc, dict):
+        return None
+    return {k: doc.get(k) for k in ("indicators", "market_flows", "foreign_hist")}
+
+
+def same_data(prev: dict | None, new: dict | None) -> bool:
+    """실제 시세가 지난번과 같은가. 지난 파일을 못 읽었으면 다르다고 본다."""
+    return prev is not None and new is not None and _core(prev) == _core(new)
+
+
 def _load_prev(url: str | None, session) -> dict | None:
     if not url:
         return None
@@ -172,10 +184,14 @@ def main(argv: list[str] | None = None) -> int:
     import requests
     import yfinance
     session = requests.Session()
-    out = build(_load_prev(args.prev_url, session), yfinance.download, session)
+    prev = _load_prev(args.prev_url, session)
+    out = build(prev, yfinance.download, session)
     if out is None:
         print("시세를 하나도 받지 못했다", file=sys.stderr)
         return 1
+    if same_data(prev, out):
+        print("변동 없음: 파일을 만들지 않는다")
+        return 0
     with open(args.out, "w", encoding="utf-8") as f:
         json.dump(out, f, ensure_ascii=False, separators=(",", ":"))
     print(f"{args.out}: 지표 {len(out['indicators'])}개, {out['sources']}")
